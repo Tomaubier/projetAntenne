@@ -1,8 +1,8 @@
-import numpy as np
+import differentialarray.differentialarrayFirstOrder as da
+from scipy.fftpack import fft, ifft
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
-from scipy.fftpack import fft, ifft
-import differentialarrayFirstOrder as da
+import numpy as np
 import os
 
 
@@ -12,8 +12,9 @@ antenne = da.DifferentialArray(steering_mic, Fs, Ntfd, freqBand, interp )
 gains = antenne.filter_matrix()
 Fk = np.arange(Ntfd)*Fs/Ntfd
 
-parentPath = 'C:/Utilisateurs/Alexia Pascal/Bureau/Directivite/Measure'
-MEASURE_NAME, ANGLE_STEP = 'Chirp', 5
+parentPath = os.path.abspath('.')
+dataDirectoryPath = os.path.join(parentPath, 'Experiments', 'Data')
+MEASURE_NAME, ANGLE_STEP = 'ChirpNoWindow', 5
 fexp = 1000
 
 
@@ -22,7 +23,7 @@ Z = np.zeros((72, Ntfd))
 value41 = np.zeros(360 // ANGLE_STEP)
 for ii, angle in enumerate(angles):
     name = '{}deg_{}.wav'.format(angle, MEASURE_NAME)
-    _, data = wav.read(os.path.join(parentPath, name))
+    _, data = wav.read(os.path.join(dataDirectoryPath, MEASURE_NAME, name))
 
     mic_ref = data[:, 1].T
     M0 = fft(mic_ref, Ntfd)
@@ -51,16 +52,18 @@ for ii, angle in enumerate(angles):
 x, y = Fk, angles
 X, Y = np.meshgrid(x, y)
 
+# %%
+
+plt.figure(figsize=(12, 6))
 plt.subplots(nrows=1)
 plt.pcolormesh(X, Y, Z, cmap='RdBu', vmax=1)
 plt.xlim(freqBand)
 plt.xlabel(r'Fréquence en Hz')
 plt.ylabel(r'Angle en degré')
 plt.colorbar()
-
+plt.show()
 
 """
-
 ax.plot(np.deg2rad(angles), 20*np.log10(value41/max(value41)))
-print(Fk[fexp])"""
-plt.show()
+print(Fk[fexp])
+"""
