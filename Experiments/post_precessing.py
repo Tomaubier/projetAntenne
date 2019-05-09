@@ -1,9 +1,10 @@
+import sys, os
+sys.path.insert(1, os.path.join(sys.path[0], '..')) # Set project path
 import differentialarray.differentialarrayFirstOrder as da
 from scipy.fftpack import fft, ifft
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import numpy as np
-import os
 
 
 steering_mic, Fs, Ntfd, freqBand, interp = 1, 44.1e3, 176128, [125, 1500], (True, 100)
@@ -14,7 +15,7 @@ Fk = np.arange(Ntfd)*Fs/Ntfd
 
 parentPath = os.path.abspath('.')
 dataDirectoryPath = os.path.join(parentPath, 'Experiments', 'Data')
-MEASURE_NAME, ANGLE_STEP = 'ChirpNoWindow', 5
+MEASURE_NAME, ANGLE_STEP = 'ChirpWindow', 5
 fexp = 1000
 
 
@@ -38,15 +39,15 @@ for ii, angle in enumerate(angles):
     Z[ii, :] = np.abs(Normed_Output)
     value41[ii] = np.abs(Normed_Output[fexp])
 
-    """
-    fig, ax = plt.subplots(nrows=1)
-    ax.plot(Fk, np.abs(Normed_Output))
-    ax.set_title("Degrés {}".format(angle))
-    ax.set_ylabel('Amplitude')
-    ax.set_xlabel('Frequence en Hz')
-    ax.set_xlim(freqBand)
-    ax.set_ylim([0, 1])
-    plt.show()"""
+
+    # fig, ax = plt.subplots(nrows=1)
+    # ax.plot(Fk, np.abs(Normed_Output))
+    # ax.set_title("Degrés {}".format(angle))
+    # ax.set_ylabel('Amplitude')
+    # ax.set_xlabel('Frequence en Hz')
+    # ax.set_xlim(freqBand)
+    # ax.set_ylim([0, 1])
+    # plt.show()
     #wav.write(os.path.join(Path_New, name), Fs, data)
 
 x, y = Fk, angles
@@ -54,8 +55,7 @@ X, Y = np.meshgrid(x, y)
 
 # %%
 
-plt.figure(figsize=(12, 6))
-plt.subplots(nrows=1)
+plt.subplots(nrows=1, figsize=(12, 6))
 plt.pcolormesh(X, Y, Z, cmap='RdBu', vmax=1)
 plt.xlim(freqBand)
 plt.xlabel(r'Fréquence en Hz')
@@ -63,7 +63,5 @@ plt.ylabel(r'Angle en degré')
 plt.colorbar()
 plt.show()
 
-"""
-ax.plot(np.deg2rad(angles), 20*np.log10(value41/max(value41)))
-print(Fk[fexp])
-"""
+# ax.plot(np.deg2rad(angles), 20*np.log10(value41/max(value41)))
+# print(Fk[fexp])

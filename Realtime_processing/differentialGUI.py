@@ -1,12 +1,13 @@
+import sys, os
+sys.path.insert(1, os.path.join(sys.path[0], '..'))
+import differentialarray.differentialarrayFirstOrder as da # differentialarrayFirstOrder / differentialarrayThirdOrder
 from PyQt5 import QtCore, QtGui, QtWidgets
-import differentialarrayFirstOrder as da # differentialarrayFirstOrder / differentialarrayThirdOrder
 import scipy.signal as sg
 import pyqtgraph as pg
 import numpy as np
 import warnings
 import pyaudio
 import time
-import sys
 
 pg.setConfigOptions(antialias=True)
 pg.setConfigOptions(useOpenGL=True)
