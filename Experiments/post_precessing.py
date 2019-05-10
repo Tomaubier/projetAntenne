@@ -62,6 +62,7 @@ plt.xlim(freqBand)
 plt.xlabel(r'Fréquence en Hz')
 plt.ylabel(r'Angle en degré')
 plt.colorbar()
+plt.savefig(os.path.join(parentPath, 'Figures', 'directivityFreq1.pdf'))
 plt.show()
 
 # %%
