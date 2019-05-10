@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import numpy as np
 
+2**13
 
 steering_mic, Fs, Ntfd, freqBand, interp = 1, 44.1e3, 176128, [125, 1500], (True, 100)
 
@@ -14,7 +15,7 @@ gains = antenne.filter_matrix()
 Fk = np.arange(Ntfd)*Fs/Ntfd
 
 parentPath = os.path.abspath('.')
-dataDirectoryPath = os.path.join(parentPath, 'Experiments', 'Data')
+dataDirectoryPath = os.path.join(parentPath, 'Data')
 MEASURE_NAME, ANGLE_STEP = 'ChirpWindow', 5
 fexp = 1000
 
@@ -50,12 +51,12 @@ for ii, angle in enumerate(angles):
     # plt.show()
     #wav.write(os.path.join(Path_New, name), Fs, data)
 
-x, y = Fk, angles
-X, Y = np.meshgrid(x, y)
+index_freqBand = [np.where(Fk >= f)[0][0] for f in freqBand]
+Z = Z[:, index_freqBand[0]:index_freqBand[1]]
 
 # %%
-
-plt.subplots(nrows=1, figsize=(12, 6))
+%%time
+plt.subplots(nrows=1, figsize=(10, 5))
 plt.pcolormesh(X, Y, Z, cmap='RdBu', vmax=1)
 plt.xlim(freqBand)
 plt.xlabel(r'Fréquence en Hz')
@@ -63,5 +64,14 @@ plt.ylabel(r'Angle en degré')
 plt.colorbar()
 plt.show()
 
-# ax.plot(np.deg2rad(angles), 20*np.log10(value41/max(value41)))
-# print(Fk[fexp])
+# %%
+%%time
+plt.subplots(nrows=1, figsize=(12, 5))
+plt.imshow(Z, cmap='RdBu', vmin=0, vmax=1, extent=[freqBand[0], freqBand[1], 0, 355], aspect=2.5, interpolation='nearest', origin='lower')
+plt.xlabel(r'Fréquence en Hz')
+plt.ylabel(r'Angle en degré')
+plt.colorbar()
+plt.savefig(os.path.join(parentPath, 'Figures', 'directivityFreq.pdf'))
+plt.show()
+
+# plt.savefig(os.path.join(parentPath, 'Figures', 'directivityFreq.pdf'))
