@@ -19,6 +19,9 @@ dataDirectoryPath = os.path.join(parentPath, 'Data')
 MEASURE_NAME, ANGLE_STEP = 'ChirpNoWindow', 5
 fexp = 1000
 
+# Hello world
+# Reçu 5/5!
+#extremement propre! J'approuve!
 
 angles = np.arange(360 // ANGLE_STEP)*ANGLE_STEP #4200
 Z = np.zeros((72, Ntfd))
