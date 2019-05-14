@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-import differentialarray.differentialarrayFirstOrder as da # differentialarrayFirstOrder / differentialarrayThirdOrder
+import differentialarray as da
 from PyQt5 import QtCore, QtGui, QtWidgets
 import scipy.signal as sg
 import pyqtgraph as pg
@@ -12,8 +12,18 @@ import time
 pg.setConfigOptions(antialias=True)
 pg.setConfigOptions(useOpenGL=True)
 
+"""
+    Interface graphique créée pour le traitement différentiel d'une antenne circulaire uniforme en temps réel.
+    Réalisée par Tom Aubier et Raphaël Dumas.
+"""
+
+
 class AudioProcessing(QtCore.QThread, da.DifferentialArray):
     trigProcess = QtCore.pyqtSignal(bool)
+    """
+     Classe permettant de traiter l'audio en temps réel pour créer un motif de faisceau cardioïde d'ordre 1.
+    """
+
     def __init__(self):
         super(AudioProcessing, self).__init__()
         self.pAudio = pyaudio.PyAudio()
@@ -24,13 +34,32 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
         self.inputDeviceNames, self.outputDeviceNames = self.get_io_names()
 
     def get_device_count(self):
+        """
+        Fonction retournant l'ensemble des dispositifs audio connectés à l'ordinateur.
+            Sortie :
+                count : 1D array, liste de tous les dispositifs audio
+        """
         hostInfo = self.pAudio.get_host_api_info_by_index(0)
-        return hostInfo.get('deviceCount')
+        count = hostInfo.get('deviceCount')
+        return count
 
     def get_device_index(self, index):
-        return self.pAudio.get_device_info_by_host_api_device_index(0, index)
+        """
+        Fonction retournant l'information du dispositif audio connecté à l'ordinateur en fonction de l'index.
+            Entrée :
+                index : int, indice du dispositif audio
+            Sortie :
+                info : information sur le dispositif audio
+        """
+        info = self.pAudio.get_device_info_by_host_api_device_index(0, index)
+        return info
 
     def get_io_indexes(self):
+        """
+        Fonction retournant la liste des indices des dispositifs audio entrant et sortant de l'ordinateur.
+            Sortie :
+                input, output : tuple, liste des indices des dispositifs audio entrant et sortant
+        """
         inputIndexes, outputIndexes = [], []
         for index in range(0, self.get_device_count()):
             device = self.get_device_index(index)
@@ -38,9 +67,15 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
                 inputIndexes.append(index)
             if device['maxOutputChannels'] > 0:
                 outputIndexes.append(index)
-        return np.array(inputIndexes), np.array(outputIndexes)
+        input, output = np.array(inputIndexes), np.array(outputIndexes)
+        return input, output
 
     def get_io_names(self):
+        """
+        Fonction retournant le nom des indices des dispositifs audio entrant et sortant de l'ordinateur.
+            Sortie :
+                inputNames, outputNames : tuple, liste des noms des dispositifs audio entrant et sortant
+        """
         inputNames, outputNames = [], []
         for index in range(0, self.get_device_count()):
             device = self.get_device_index(index)
@@ -52,9 +87,13 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
                 inputNames.append('{} ({} Ch.)'.format(device_name, device['maxInputChannels']))
             if device['maxOutputChannels'] > 0:
                 outputNames.append('{} ({} Ch.)'.format(device_name, device['maxOutputChannels']))
-        return np.array(inputNames), np.array(outputNames)
+        inputNames, outputNames = np.array(inputNames), np.array(outputNames)
+        return inputNames, outputNames
 
     def setInputDevice(self, selectorIndex):
+        """
+        Fonction permettant de sélectionnner le dispositif audio entrant avec l'interface graphique.
+        """
         if selectorIndex != 0:
             self.inputDeviceIndex = self.inputDeviceIndexes[selectorIndex-1]
             self.inputDevice = self.get_device_index(self.inputDeviceIndex)
@@ -64,6 +103,9 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
             self.inputSet = False
 
     def setOutputDevice(self, selectorIndex):
+        """
+        Fonction permettant de sélectionnner le dispositif audio sortant avec l'interface graphique.
+        """
         if selectorIndex != 0:
             self.outputDeviceIndex = self.outputDeviceIndexes[selectorIndex-1]
             self.outputDevice = self.get_device_index(self.outputDeviceIndex)
@@ -73,6 +115,9 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
             self.outputSet = False
 
     def initStream(self):
+        """
+        Fonction définissant les streams audio utilisés pour l'entrée et la sortie.
+        """
         self.micsToErase = self.getMicsToErase()
         self.inputStream = self.pAudio.open(format = pyaudio.paFloat32,
                         frames_per_buffer = self.pAudioChunkSize,
@@ -89,20 +134,32 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
                         channels = self.nbOfOutputChannels)
 
     def closeStream(self):
+        """
+        Fonction permettant de fermer les streams audio et d'arrêter le traitement en temps réel.
+        """
         self.inputStream.stop_stream()
         self.inputStream.close()
         self.outputStream.stop_stream()
         self.outputStream.close()
 
     def getMicsToErase(self):
+        """
+        Fonction permettant de sélectionner les voies microphoniques à conserver pour le traitement.
+            Sortie :
+                mics : 1D np.array, indices des voies microphoniques conservées
+        """
         channels = np.arange(8)
         if self.M == 3:
             mics = np.delete(channels, channels[2::6//self.M], None)
             return mics
         else:
-            return np.array([0, 7])
+            mics = np.array([0, 7])
+            return mics
 
     def run(self):
+        """
+        Fonction permettant de démarrer le traitement en temps réel.
+        """
         while True:
             try:
                 rawData = np.frombuffer(self.inputStream.read(self.pAudioChunkSize), dtype=np.float32)
@@ -122,15 +179,20 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
             self.outputStream.write(outputData.astype(np.float32).tostring())
 
     def clean(self):
+        """
+        Fonction permettant de nettoyer les tampons utilisés pour l'audio entrant et sortant.
+        """
         if self.isRunning():
             self.closeStream()
         self.pAudio.terminate()
 
 
 class BeampatternPlot(da.DifferentialArray):
+    """
+     Classe permettant de définir le motif de faisceau sur l'interface graphique pour ensuite pouvoir le changer avec la classe BeampatternViewBox.
+    """
     def __init__(self):
         super(BeampatternPlot, self).__init__()
-
         self.beampatternVbox = BeampatternViewBox()
         self.beampatternPltWidget = pg.PlotWidget(viewBox=self.beampatternVbox)
         self.beampatternPltWidget.setAspectLocked()
@@ -146,16 +208,31 @@ class BeampatternPlot(da.DifferentialArray):
         self.plotBeampattern(1)
 
     def getBeampattern(self, steering_mic):
+        """
+        Fonction permettant d'obtenir le motif de faisceau pour une fréquence de 500 Hz et pouvoir le représenter au sein de l'interface graphique.
+        """
         beam = da.DifferentialArray(steering_mic=steering_mic)
         resolution = 500
         theta = np.linspace(0, 2*np.pi, resolution)
         return (beam.compute_beampattern(theta, f=500), theta)
 
     def drawHandles(self):
+        """
+        Fonction permettant d'obtenir de montrer les différents angles de pilotage de l'antenne différents au sein de l'interface graphique avec des ronds rouges.
+        """
         self.beamPatternHandles = self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([1.2]), 0), pen=None, symbol='o', symbolBrush=(250, 0, 0), symbolPen='w')
         pass
 
     def cartesian2polar(self, x, y, origin=(0, 0)):
+        """
+        Fonction permettant de passer de la base cartésienne à la base polaire.
+            Entrée :
+                x : 1D np.array, vecteur position suivant x
+                y : 1D np.array, vecteur position suivant y
+            Sortie :
+                r : 1D np.array, vecteur position suivant le rayon
+                theta : 1D np.array, vecteur position suivant l'angle
+        """
         x, y = x - origin[0], y - origin[1]
         try:
             theta, r = np.nan_to_num(2*np.arctan(y/(x + np.sqrt(x**2 + y**2)))), np.sqrt(x**2 + y**2)
@@ -164,10 +241,22 @@ class BeampatternPlot(da.DifferentialArray):
         return r, theta
 
     def polar2cartesian(self, r, theta):
+        """
+        Fonction permettant de passer de la base polaire à la base cartésienne.
+            Entrée :
+                r : 1D np.array, vecteur position suivant le rayon
+                theta : 1D np.array, vecteur position suivant l'angle
+            Sortie :
+                x : 1D np.array, vecteur position suivant x
+                y : 1D np.array, vecteur position suivant y
+        """
         x, y = r * np.cos(theta), r * np.sin(theta)
         return x, y
 
     def drawAxes(self):
+        """
+        Fonction permettant la représentation du motif de faisceau ainsi que ses différentes variations possibles au sein de l'interface graphique.
+        """
         rMax = 1.2
         # Add polar grid lines
         self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([-rMax, rMax]), np.pi/3), pen=0.3)
@@ -182,16 +271,28 @@ class BeampatternPlot(da.DifferentialArray):
         self.beampatternPltWidget.addItem(circle)
 
     def plotBeampattern(self, steering_mic):
+        """
+        Fonction permettant la mise à jour du motif de faisceau en fonction de son angle de pilotage.
+            Entrée :
+                steering_mic : int, numéro du microphone pour l'orientation du motif de faisceau
+        """
         self.beamPatternHandles.setData(*self.polar2cartesian(np.array([1.2]), (steering_mic-1)*self.beampatternVbox.micAngleStep))
         self.beamPatternCurve.setData(*self.polar2cartesian(*self.getBeampattern(steering_mic)))
 
     def start(self):
+        """
+        Fonction qui démarre le tracé du motif de faisceau en mode interactif.
+        """
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
             QtGui.QApplication.instance().exec_()
 
 
 class BeampatternViewBox(pg.ViewBox, da.DifferentialArray):
     trigBeamPatternUpdate = QtCore.pyqtSignal(int)
+
+    """
+     Classe permettant de montrer le motif de faisceau sur l'interface graphique et de le changer.
+    """
     def __init__(self):
         super(BeampatternViewBox, self).__init__()
         if self.M == 6:
@@ -201,6 +302,9 @@ class BeampatternViewBox(pg.ViewBox, da.DifferentialArray):
         self.steeringMic = 1
 
     def mouseDragEvent(self, ev):
+    """
+     Fonction permettant de montrer le motif de faisceau sur l'interface graphique et de le changer en le glissant dans l'interface graphique.
+    """
         if (ev.button() == QtCore.Qt.LeftButton):
             pg.ViewBox.mouseDragEvent(self, ev)
             xMouse, yMouse = self.mapToView(ev.pos()).x(), self.mapToView(ev.pos()).y()
@@ -218,6 +322,10 @@ class BeampatternViewBox(pg.ViewBox, da.DifferentialArray):
 
 
 class MainUI(QtWidgets.QWidget, BeampatternPlot):
+
+    """
+     Classe permettant de réaliser l'interface graphique et de l'utiliser.
+    """
     def __init__(self):
         super().__init__()
         self.winSize = (600, 600)
@@ -231,12 +339,18 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
         self.show()
 
     def geometry(self):
+    """
+    Fonction permettant de définir la géométrie de la fenêtre principale de l'interface graphique.
+    """
         x = screenSize.width() // 2 - self.winSize[0] // 2
         y = screenSize.height() // 2 - self.winSize[1] // 1.5
         w, h = self.winSize[0], self.winSize[1]
         self.setGeometry(x, y, w, h)
 
     def closeEvent(self, event):
+    """
+    Fonction permettant quitter l'interface graphique et de nettoyer les tampons audios entrant et sortant.
+    """
         closeMessage = QtWidgets.QMessageBox()
         closeMessage.setText('Quit Application?')
         closeMessage.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.Cancel)
@@ -248,6 +362,9 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
             event.ignore()
 
     def ui_elements(self):
+    """
+    Fonction ajoutant les différents élements graphiques de l'interface et les connectant aux différentes fonctions.
+    """
         ## Buttons
         self.applyAudioSettingsButton = QtWidgets.QPushButton('Apply Settings', self)
         self.applyAudioSettingsButton.clicked.connect(self.applyAudioSettings)
@@ -297,6 +414,9 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
         masterLayout.addLayout(self.recordingLayout, 3, 0)
 
     def applyAudioSettings(self):
+    """
+    Fonction assurant la sélection des dispositifs audios entrant et sortant choisis par l'utilisateur.
+    """
         if self.audio.inputSet & self.audio.outputSet:
             if self.audio.nbOfInputChannels == 8:
                 self.applyAudioSettingsButton.setEnabled(False)
@@ -312,6 +432,9 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
             QtWidgets.QMessageBox.information(self, 'Info', 'No Output Selected...', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
 
     def startStopRecording(self):
+    """
+    Fonction permettant de démarrer et d'arrêter le traitement en temps réel avec l'interface graphique.
+    """
         if not self.audio.isRunning():
             self.audio.initStream()
             self.audio.start()
@@ -323,6 +446,10 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
 
 
 class ParallelProcessing(QtCore.QThread, da.DifferentialArray):
+
+    """
+     Classe permettant de réaliser le traitement de l'antenne de microphones en temps réel.
+    """
     def __init__(self):
         super(ParallelProcessing, self).__init__()
         self.IR = np.zeros((self.M, 2**13, self.M))
@@ -331,9 +458,12 @@ class ParallelProcessing(QtCore.QThread, da.DifferentialArray):
             self.IR[:, :, possibility-1] = impulse.compute_impulse_responses()
 
     def run(self):
+    """
+    Fonction permettant de réaliser la convolution du tampon avec les réponses impulsionnelles précédemment calculées pour les microphones d'intérêts.
+    """
         self.processedChunk = np.sum(sg.fftconvolve(mainUI.audio.rollingBuffer, self.IR[:, :, 0], mode='same', axes=1)[:, -mainUI.audio.pAudioChunkSize:], axis=0)
 
-
+# Exécution du programme et création du multiple filetage défini précédemment dans ce script Python
 if __name__ == '__main__':
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     app = QtWidgets.QApplication(sys.argv)

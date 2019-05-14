@@ -1,12 +1,10 @@
 import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], '..')) # Set project path
-import differentialarray.differentialarrayFirstOrder as da
+import differentialarray as da
 from scipy.fftpack import fft, ifft
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import numpy as np
-
-2**13
 
 steering_mic, Fs, Ntfd, freqBand, interp = 1, 44.1e3, 176128, [60, 2285], (True, 100)
 
@@ -14,7 +12,7 @@ antenne = da.DifferentialArray(steering_mic, Fs, Ntfd, freqBand, interp )
 gains = antenne.filter_matrix()
 Fk = np.arange(Ntfd)*Fs/Ntfd
 
-parentPath = os.path.abspath('./Experiments')
+parentPath = os.path.abspath('.') #'./Experiments')
 dataDirectoryPath = os.path.join(parentPath, 'Data')
 MEASURE_NAME, ANGLE_STEP = 'ChirpNoWindow', 5
 fexp = 1000
