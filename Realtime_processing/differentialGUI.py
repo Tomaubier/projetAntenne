@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-import differentialarray as da
 from PyQt5 import QtCore, QtGui, QtWidgets
+import differentialarray as da
 import scipy.signal as sg
 import pyqtgraph as pg
 import numpy as np
@@ -18,6 +18,159 @@ pg.setConfigOptions(useOpenGL=True)
 """
 
 
+class BeampatternPlot(da.DifferentialArray):
+    """
+     Classe permettant de définir le motif de faisceau sur l'interface graphique pour ensuite pouvoir le changer avec la classe BeampatternViewBox.
+    """
+
+    def __init__(self):
+        super(BeampatternPlot, self).__init__()
+        self.beampatternVbox = BeampatternViewBox()
+        self.beampatternPltWidget = pg.PlotWidget(viewBox=self.beampatternVbox)
+        self.beampatternPltWidget.setAspectLocked()
+        self.beampatternPltWidget.setMouseEnabled(x=False, y=False)
+        self.beampatternPltWidget.hideAxis('bottom')
+        self.beampatternPltWidget.hideAxis('left')
+        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([1.2]), np.arange(0, 5*np.pi/3, np.pi/3)), pen=None, symbol='o', symbolBrush=(50, 50, 50), symbolPen='w')
+        self.beamPatternCurve = self.beampatternPltWidget.plot(pen=pg.mkPen(width=3, color=(255, 153.0, 7.65)))
+        self.beampatternVbox.trigBeamPatternUpdate.connect(self.plotBeampattern)
+
+        self.drawAxes()
+        self.drawHandles()
+        self.plotBeampattern(1)
+
+    def getBeampattern(self, steering_mic):
+        """
+        Fonction permettant d'obtenir le motif de faisceau pour une fréquence de 500 Hz et pouvoir le représenter au sein de l'interface graphique.
+        """
+        beam = da.DifferentialArray(steering_mic=steering_mic)
+        resolution = 500
+        theta = np.linspace(0, 2*np.pi, resolution)
+        return (beam.beampattern(theta, f=500), theta)
+
+    def drawHandles(self):
+        """
+        Fonction permettant d'obtenir de montrer les différents angles de pilotage de l'antenne différents au sein de l'interface graphique avec des ronds rouges.
+        """
+        self.beamPatternHandles = self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([1.2]), 0), pen=None, symbol='o', symbolBrush=(250, 0, 0), symbolPen='w')
+        pass
+
+    def cartesian2polar(self, x, y, origin=(0, 0)):
+        """
+        Fonction permettant de passer de la base cartésienne à la base polaire.
+            Entrée :
+                x : 1D np.array, vecteur position suivant x
+                y : 1D np.array, vecteur position suivant y
+            Sortie :
+                r : 1D np.array, vecteur position suivant le rayon
+                theta : 1D np.array, vecteur position suivant l'angle
+        """
+        x, y = x - origin[0], y - origin[1]
+        try:
+            theta, r = np.nan_to_num(2*np.arctan(y/(x + np.sqrt(x**2 + y**2)))), np.sqrt(x**2 + y**2)
+        except:
+            pass
+        return r, theta
+
+    def polar2cartesian(self, r, theta):
+        """
+        Fonction permettant de passer de la base polaire à la base cartésienne.
+            Entrée :
+                r : 1D np.array, vecteur position suivant le rayon
+                theta : 1D np.array, vecteur position suivant l'angle
+            Sortie :
+                x : 1D np.array, vecteur position suivant x
+                y : 1D np.array, vecteur position suivant y
+        """
+        x, y = r * np.cos(theta), r * np.sin(theta)
+        return x, y
+
+    def drawAxes(self):
+        """
+        Fonction permettant la représentation du motif de faisceau ainsi que ses différentes variations possibles au sein de l'interface graphique.
+        """
+        rMax = 1.2
+        # Add polar grid lines
+        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([-rMax, rMax]), np.pi/3), pen=0.3)
+        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([-rMax, rMax]), 0), pen=0.3)
+        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([-rMax, rMax]), 2*np.pi/3), pen=0.3)
+        for r in np.arange(0, rMax, 0.2):
+            circle = pg.QtGui.QGraphicsEllipseItem(-r, -r, r*2, r*2)
+            circle.setPen(pg.mkPen(0.2))
+            self.beampatternPltWidget.addItem(circle)
+        circle = pg.QtGui.QGraphicsEllipseItem(-rMax, -rMax, rMax*2, rMax*2)
+        circle.setPen(pg.mkPen(0.5))
+        self.beampatternPltWidget.addItem(circle)
+
+    def plotBeampattern(self, steering_mic):
+        """
+        Fonction permettant la mise à jour du motif de faisceau en fonction de son angle de pilotage.
+            Entrée :
+                steering_mic : int, numéro du microphone pour l'orientation du motif de faisceau
+        """
+        self.beamPatternHandles.setData(*self.polar2cartesian(np.array([1.2]), (steering_mic-1)*self.beampatternVbox.micAngleStep))
+        self.beamPatternCurve.setData(*self.polar2cartesian(*self.getBeampattern(steering_mic)))
+
+    def start(self):
+        """
+        Fonction qui démarre le tracé du motif de faisceau en mode interactif.
+        """
+        if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+            QtGui.QApplication.instance().exec_()
+
+
+class BeampatternViewBox(pg.ViewBox, da.DifferentialArray):
+    trigBeamPatternUpdate = QtCore.pyqtSignal(int)
+    """
+     Classe permettant de montrer le motif de faisceau sur l'interface graphique et de le changer.
+    """
+
+    def __init__(self):
+        super(BeampatternViewBox, self).__init__()
+        if self.M == 6:
+            self.micAngleStep = np.pi/3
+        else:
+            self.micAngleStep = 2*np.pi/3
+        self.steeringMic = 0
+
+    def mouseDragEvent(self, ev):
+        """
+         Fonction permettant de montrer le motif de faisceau sur l'interface graphique et de le changer en le glissant dans l'interface graphique.
+        """
+        if (ev.button() == QtCore.Qt.LeftButton):
+            pg.ViewBox.mouseDragEvent(self, ev)
+            xMouse, yMouse = self.mapToView(ev.pos()).x(), self.mapToView(ev.pos()).y()
+            rMouse, thetaMouse = mainUI.beampatternPlot.cartesian2polar(xMouse, yMouse)
+            newSteeringMic = int((thetaMouse+self.micAngleStep/2)//self.micAngleStep)
+            if self.M == 6:
+                newSteeringMic = (newSteeringMic if newSteeringMic >= 0 else newSteeringMic+6)
+            else:
+                newSteeringMic = (newSteeringMic if newSteeringMic >= 0 else 2)
+            if newSteeringMic != self.steeringMic:
+                self.steeringMic = newSteeringMic
+                self.trigBeamPatternUpdate.emit(newSteeringMic+1)
+            ev.accept()
+
+
+class ParallelProcessing(QtCore.QThread, da.DifferentialArray):
+    """
+     Classe permettant de réaliser le traitement de l'antenne de microphones en temps réel.
+    """
+
+    def __init__(self):
+        super(ParallelProcessing, self).__init__()
+        self.IR = np.zeros((self.M, 2**13, self.M))
+        for possibility in range(1, self.M+1):
+            impulse = da.DifferentialArray(steering_mic=possibility)
+            self.IR[:, :, possibility-1] = impulse.impulse_responses()
+
+    def run(self):
+        """
+        Fonction permettant de réaliser la convolution du tampon avec les réponses impulsionnelles précédemment calculées pour les microphones d'intérêts.
+        """
+        self.processedChunk = np.sum(sg.fftconvolve(mainUI.audio.rollingBuffer, self.IR[:, :, mainUI.beampatternVbox.steeringMic], mode='same', axes=1), axis=0)[-mainUI.audio.pAudioChunkSize:]
+
+
 class AudioProcessing(QtCore.QThread, da.DifferentialArray):
     trigProcess = QtCore.pyqtSignal(bool)
     """
@@ -27,7 +180,7 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
     def __init__(self):
         super(AudioProcessing, self).__init__()
         self.pAudio = pyaudio.PyAudio()
-        self.rollingBuffer, self.pAudioChunkSize, self.Fs = np.zeros((self.M, 16000)), 128, 8000
+        self.rollingBuffer, self.pAudioChunkSize, self.Fs = np.zeros((self.M, 16000)), 256, 8000
 
         self.inputSet, self.outputSet = False, False
         self.inputDeviceIndexes, self.outputDeviceIndexes = self.get_io_indexes()
@@ -161,20 +314,18 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
         Fonction permettant de démarrer le traitement en temps réel.
         """
         while True:
-            try:
-                rawData = np.frombuffer(self.inputStream.read(self.pAudioChunkSize), dtype=np.float32)
-                micData = rawData.reshape((self.pAudioChunkSize, self.nbOfInputChannels)).T
-            except:
-                print('Input Overflow')
-                micData = np.zeros((self.nbOfInputChannels, self.pAudioChunkSize))
+            micData = np.frombuffer(self.inputStream.read(self.pAudioChunkSize), dtype=np.float32).reshape((self.pAudioChunkSize, self.nbOfInputChannels)).T
 
             self.rollingBuffer = np.roll(self.rollingBuffer, -self.pAudioChunkSize)
             self.rollingBuffer[:, -self.pAudioChunkSize:] = np.delete(micData, self.micsToErase, axis=0)
+
             self.trigProcess.emit(True)
+
             try:
                 outputData = mainUI.parallelProcess.processedChunk
             except:
                 outputData = np.zeros(self.pAudioChunkSize)
+
             outputData = np.repeat(outputData, self.nbOfOutputChannels, axis=0)
             self.outputStream.write(outputData.astype(np.float32).tostring())
 
@@ -187,145 +338,11 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
         self.pAudio.terminate()
 
 
-class BeampatternPlot(da.DifferentialArray):
-    """
-     Classe permettant de définir le motif de faisceau sur l'interface graphique pour ensuite pouvoir le changer avec la classe BeampatternViewBox.
-    """
-    def __init__(self):
-        super(BeampatternPlot, self).__init__()
-        self.beampatternVbox = BeampatternViewBox()
-        self.beampatternPltWidget = pg.PlotWidget(viewBox=self.beampatternVbox)
-        self.beampatternPltWidget.setAspectLocked()
-        self.beampatternPltWidget.setMouseEnabled(x=False, y=False)
-        self.beampatternPltWidget.hideAxis('bottom')
-        self.beampatternPltWidget.hideAxis('left')
-        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([1.2]), np.arange(0, 5*np.pi/3, np.pi/3)), pen=None, symbol='o', symbolBrush=(50, 50, 50), symbolPen='w')
-        self.beamPatternCurve = self.beampatternPltWidget.plot(pen=pg.mkPen(width=3, color=(255, 153.0, 7.65)))
-        self.beampatternVbox.trigBeamPatternUpdate.connect(self.plotBeampattern)
-
-        self.drawAxes()
-        self.drawHandles()
-        self.plotBeampattern(1)
-
-    def getBeampattern(self, steering_mic):
-        """
-        Fonction permettant d'obtenir le motif de faisceau pour une fréquence de 500 Hz et pouvoir le représenter au sein de l'interface graphique.
-        """
-        beam = da.DifferentialArray(steering_mic=steering_mic)
-        resolution = 500
-        theta = np.linspace(0, 2*np.pi, resolution)
-        return (beam.compute_beampattern(theta, f=500), theta)
-
-    def drawHandles(self):
-        """
-        Fonction permettant d'obtenir de montrer les différents angles de pilotage de l'antenne différents au sein de l'interface graphique avec des ronds rouges.
-        """
-        self.beamPatternHandles = self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([1.2]), 0), pen=None, symbol='o', symbolBrush=(250, 0, 0), symbolPen='w')
-        pass
-
-    def cartesian2polar(self, x, y, origin=(0, 0)):
-        """
-        Fonction permettant de passer de la base cartésienne à la base polaire.
-            Entrée :
-                x : 1D np.array, vecteur position suivant x
-                y : 1D np.array, vecteur position suivant y
-            Sortie :
-                r : 1D np.array, vecteur position suivant le rayon
-                theta : 1D np.array, vecteur position suivant l'angle
-        """
-        x, y = x - origin[0], y - origin[1]
-        try:
-            theta, r = np.nan_to_num(2*np.arctan(y/(x + np.sqrt(x**2 + y**2)))), np.sqrt(x**2 + y**2)
-        except:
-            pass
-        return r, theta
-
-    def polar2cartesian(self, r, theta):
-        """
-        Fonction permettant de passer de la base polaire à la base cartésienne.
-            Entrée :
-                r : 1D np.array, vecteur position suivant le rayon
-                theta : 1D np.array, vecteur position suivant l'angle
-            Sortie :
-                x : 1D np.array, vecteur position suivant x
-                y : 1D np.array, vecteur position suivant y
-        """
-        x, y = r * np.cos(theta), r * np.sin(theta)
-        return x, y
-
-    def drawAxes(self):
-        """
-        Fonction permettant la représentation du motif de faisceau ainsi que ses différentes variations possibles au sein de l'interface graphique.
-        """
-        rMax = 1.2
-        # Add polar grid lines
-        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([-rMax, rMax]), np.pi/3), pen=0.3)
-        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([-rMax, rMax]), 0), pen=0.3)
-        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([-rMax, rMax]), 2*np.pi/3), pen=0.3)
-        for r in np.arange(0, rMax, 0.2):
-            circle = pg.QtGui.QGraphicsEllipseItem(-r, -r, r*2, r*2)
-            circle.setPen(pg.mkPen(0.2))
-            self.beampatternPltWidget.addItem(circle)
-        circle = pg.QtGui.QGraphicsEllipseItem(-rMax, -rMax, rMax*2, rMax*2)
-        circle.setPen(pg.mkPen(0.5))
-        self.beampatternPltWidget.addItem(circle)
-
-    def plotBeampattern(self, steering_mic):
-        """
-        Fonction permettant la mise à jour du motif de faisceau en fonction de son angle de pilotage.
-            Entrée :
-                steering_mic : int, numéro du microphone pour l'orientation du motif de faisceau
-        """
-        self.beamPatternHandles.setData(*self.polar2cartesian(np.array([1.2]), (steering_mic-1)*self.beampatternVbox.micAngleStep))
-        self.beamPatternCurve.setData(*self.polar2cartesian(*self.getBeampattern(steering_mic)))
-
-    def start(self):
-        """
-        Fonction qui démarre le tracé du motif de faisceau en mode interactif.
-        """
-        if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-            QtGui.QApplication.instance().exec_()
-
-
-class BeampatternViewBox(pg.ViewBox, da.DifferentialArray):
-    trigBeamPatternUpdate = QtCore.pyqtSignal(int)
-
-    """
-     Classe permettant de montrer le motif de faisceau sur l'interface graphique et de le changer.
-    """
-    def __init__(self):
-        super(BeampatternViewBox, self).__init__()
-        if self.M == 6:
-            self.micAngleStep = np.pi/3
-        else:
-            self.micAngleStep = 2*np.pi/3
-        self.steeringMic = 1
-
-    def mouseDragEvent(self, ev):
-    """
-     Fonction permettant de montrer le motif de faisceau sur l'interface graphique et de le changer en le glissant dans l'interface graphique.
-    """
-        if (ev.button() == QtCore.Qt.LeftButton):
-            pg.ViewBox.mouseDragEvent(self, ev)
-            xMouse, yMouse = self.mapToView(ev.pos()).x(), self.mapToView(ev.pos()).y()
-            rMouse, thetaMouse = mainUI.beampatternPlot.cartesian2polar(xMouse, yMouse)
-            newSteeringMic = int((thetaMouse+self.micAngleStep/2)//self.micAngleStep)
-            if self.M == 6:
-                newSteeringMic = (newSteeringMic if newSteeringMic >= 0 else newSteeringMic+6)
-            else:
-                newSteeringMic = (newSteeringMic if newSteeringMic >= 0 else 2)
-            if newSteeringMic != self.steeringMic:
-                print(newSteeringMic)
-                self.steeringMic = newSteeringMic
-                self.trigBeamPatternUpdate.emit(newSteeringMic+1)
-            ev.accept()
-
-
 class MainUI(QtWidgets.QWidget, BeampatternPlot):
-
     """
      Classe permettant de réaliser l'interface graphique et de l'utiliser.
     """
+
     def __init__(self):
         super().__init__()
         self.winSize = (600, 600)
@@ -339,18 +356,18 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
         self.show()
 
     def geometry(self):
-    """
-    Fonction permettant de définir la géométrie de la fenêtre principale de l'interface graphique.
-    """
+        """
+        Fonction permettant de définir la géométrie de la fenêtre principale de l'interface graphique.
+        """
         x = screenSize.width() // 2 - self.winSize[0] // 2
         y = screenSize.height() // 2 - self.winSize[1] // 1.5
         w, h = self.winSize[0], self.winSize[1]
         self.setGeometry(x, y, w, h)
 
     def closeEvent(self, event):
-    """
-    Fonction permettant quitter l'interface graphique et de nettoyer les tampons audios entrant et sortant.
-    """
+        """
+        Fonction permettant quitter l'interface graphique et de nettoyer les tampons audios entrant et sortant.
+        """
         closeMessage = QtWidgets.QMessageBox()
         closeMessage.setText('Quit Application?')
         closeMessage.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.Cancel)
@@ -362,9 +379,9 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
             event.ignore()
 
     def ui_elements(self):
-    """
-    Fonction ajoutant les différents élements graphiques de l'interface et les connectant aux différentes fonctions.
-    """
+        """
+        Fonction ajoutant les différents élements graphiques de l'interface et les connectant aux différentes fonctions.
+        """
         ## Buttons
         self.applyAudioSettingsButton = QtWidgets.QPushButton('Apply Settings', self)
         self.applyAudioSettingsButton.clicked.connect(self.applyAudioSettings)
@@ -394,9 +411,6 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
         self.quit = QtWidgets.QAction("Quit", self)
         self.quit.triggered.connect(self.closeEvent)
 
-        # Beampattern
-        # self.beampatternPltWidget.setEnabled(False)
-
         ## Layouts
         self.audioSettingsLayout = QtWidgets.QGridLayout()
         self.audioSettingsLayout.addWidget(self.audioSettingsLabel, 0, 0)
@@ -414,9 +428,9 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
         masterLayout.addLayout(self.recordingLayout, 3, 0)
 
     def applyAudioSettings(self):
-    """
-    Fonction assurant la sélection des dispositifs audios entrant et sortant choisis par l'utilisateur.
-    """
+        """
+        Fonction assurant la sélection des dispositifs audios entrant et sortant choisis par l'utilisateur.
+        """
         if self.audio.inputSet & self.audio.outputSet:
             if self.audio.nbOfInputChannels == 8:
                 self.applyAudioSettingsButton.setEnabled(False)
@@ -432,9 +446,9 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
             QtWidgets.QMessageBox.information(self, 'Info', 'No Output Selected...', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
 
     def startStopRecording(self):
-    """
-    Fonction permettant de démarrer et d'arrêter le traitement en temps réel avec l'interface graphique.
-    """
+        """
+        Fonction permettant de démarrer et d'arrêter le traitement en temps réel avec l'interface graphique.
+        """
         if not self.audio.isRunning():
             self.audio.initStream()
             self.audio.start()
@@ -445,25 +459,6 @@ class MainUI(QtWidgets.QWidget, BeampatternPlot):
             self.recordButton.setText('Start')
 
 
-class ParallelProcessing(QtCore.QThread, da.DifferentialArray):
-
-    """
-     Classe permettant de réaliser le traitement de l'antenne de microphones en temps réel.
-    """
-    def __init__(self):
-        super(ParallelProcessing, self).__init__()
-        self.IR = np.zeros((self.M, 2**13, self.M))
-        for possibility in range(1, self.M+1):
-            impulse = da.DifferentialArray(steering_mic=possibility)
-            self.IR[:, :, possibility-1] = impulse.compute_impulse_responses()
-
-    def run(self):
-    """
-    Fonction permettant de réaliser la convolution du tampon avec les réponses impulsionnelles précédemment calculées pour les microphones d'intérêts.
-    """
-        self.processedChunk = np.sum(sg.fftconvolve(mainUI.audio.rollingBuffer, self.IR[:, :, 0], mode='same', axes=1)[:, -mainUI.audio.pAudioChunkSize:], axis=0)
-
-# Exécution du programme et création du multiple filetage défini précédemment dans ce script Python
 if __name__ == '__main__':
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     app = QtWidgets.QApplication(sys.argv)

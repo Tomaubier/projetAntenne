@@ -48,7 +48,7 @@ class CircularArray:
 
 
 class DifferentialArray(CircularArray, Medium):
-    def __init__(self, steering_mic, Fs, Ntfd, freqBand, interp):
+    def __init__(self, steering_mic=1, Fs=8000, Ntfd=2**13, freqBand=(441, 1851), interp=(True, 10)): # steering_mic, Fs, Ntfd, freqBand, interp):
         super(DifferentialArray, self).__init__()
         self.Fs, self.Ntfd = Fs, Ntfd
         self.Fk = np.arange(self.Ntfd)*self.Fs / self.Ntfd
