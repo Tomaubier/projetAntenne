@@ -31,7 +31,7 @@ class BeampatternPlot(da.DifferentialArray):
         self.beampatternPltWidget.setMouseEnabled(x=False, y=False)
         self.beampatternPltWidget.hideAxis('bottom')
         self.beampatternPltWidget.hideAxis('left')
-        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([1.2]), np.arange(0, 5*np.pi/3, np.pi/3)), pen=None, symbol='o', symbolBrush=(50, 50, 50), symbolPen='w')
+        self.beampatternPltWidget.plot(*self.polar2cartesian(np.array([1.2]), np.arange(0, 5*np.pi/3, 2*np.pi/3)), pen=None, symbol='o', symbolBrush=(50, 50, 50), symbolPen='w')
         self.beamPatternCurve = self.beampatternPltWidget.plot(pen=pg.mkPen(width=3, color=(255, 153.0, 7.65)))
         self.beampatternVbox.trigBeamPatternUpdate.connect(self.plotBeampattern)
 
@@ -168,7 +168,7 @@ class ParallelProcessing(QtCore.QThread, da.DifferentialArray):
         """
         Fonction permettant de réaliser la convolution du tampon avec les réponses impulsionnelles précédemment calculées pour les microphones d'intérêts.
         """
-        self.processedChunk = np.sum(sg.fftconvolve(mainUI.audio.rollingBuffer, self.IR[:, :, mainUI.beampatternVbox.steeringMic], mode='same', axes=1), axis=0)[-mainUI.audio.pAudioChunkSize:]
+        self.processedChunk = np.sum(sg.fftconvolve(mainUI.audio.rollingBuffer, self.IR[:, :, mainUI.beampatternVbox.steeringMic], mode='same', axes=1), axis=0)[-mainUI.audio.pAudioChunkSize-16:-16]
 
 
 class AudioProcessing(QtCore.QThread, da.DifferentialArray):
@@ -180,7 +180,7 @@ class AudioProcessing(QtCore.QThread, da.DifferentialArray):
     def __init__(self):
         super(AudioProcessing, self).__init__()
         self.pAudio = pyaudio.PyAudio()
-        self.rollingBuffer, self.pAudioChunkSize, self.Fs = np.zeros((self.M, 16000)), 256, 8000
+        self.rollingBuffer, self.pAudioChunkSize, self.Fs = np.zeros((self.M, 16000)), 512, 8000
 
         self.inputSet, self.outputSet = False, False
         self.inputDeviceIndexes, self.outputDeviceIndexes = self.get_io_indexes()

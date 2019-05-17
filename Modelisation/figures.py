@@ -1,13 +1,13 @@
 import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], '..')) # Set project path
-import differentialarray.differentialarray as da
+import differentialarray as da
 import matplotlib.pyplot as plt
 import scipy.signal as sg
 import numpy as np
 
 # Constantes
 n_interp = 100
-steering_mic, Fs, Ntfd, freqBand, interp = 1, 6000, 2**13, (441, 1851), (True, n_interp)
+steering_mic, Fs, Ntfd, freqBand, interp = 1, 44100, 44100, (441, 1851), (True, n_interp)
 
 # Axes temporel / angulaire #
 t = np.arange(Fs)/Fs
@@ -24,33 +24,33 @@ Fk = np.arange(Ntfd)*Fs/Ntfd
 # %%  Figure 1 : Champ de pression
 #------------------------------------------------------------------------------#
 
-fig, ax0 = plt.subplots(nrows=1)
-fig = plt.gcf()
-fig.canvas.set_window_title('Champ de pression')
-antenne = da.DifferentialArray(steering_mic, Fs, Ntfd, freqBand, interp)
-x, y = antenne.coordinates()
-x_grid = np.linspace(-antenne.R*(1 + 0.1), antenne.R*(1 + 0.1), 500)
-x_grid, y_grid = np.meshgrid(x_grid, x_grid)
-ax0.set_xticks([-antenne.R, 0, antenne.R])
-ax0.set_xticklabels([r'$-R$', '0', r'$R$'])
-ax0.set_yticks([-antenne.R, 0, antenne.R])
-ax0.set_yticklabels([r'$-R$', '0', r'$R$'])
-ax0.set_xlim([-antenne.R*(1 + 0.1), antenne.R*(1 + 0.1)])
-ax0.set_ylim([-antenne.R*(1 + 0.1), antenne.R*(1 + 0.1)])
-ax0.set_xlabel(r'Position suivant $x$')
-ax0.set_ylabel(r'Position suivant $y$')
-S = da.PlaneWave(1, 500, np.pi/2)
-print(2*np.pi*S.f*antenne.R/342)
-field = np.real(S.static_field(x_grid, y_grid))
-c = ax0.pcolormesh(x_grid, y_grid, field, cmap='coolwarm')
-cbar = fig.colorbar(c, ticks=[np.min(field), 0, np.max(field)])
-cbar.ax.set_yticklabels([r'$P_{min}$', r'$0$', r'$P_{max}$'])
-for ii in range(antenne.M):
-    ax0.plot(x[ii], y[ii], 'oC{}'.format(ii), label=r'$M_{}$'.format(ii+1))
-plt.legend()
-plt.tight_layout()
-plt.savefig(os.path.join('Figures', '1-1-ChampPression.png'), facecolor='w', edgecolor='w')
-plt.show()
+# fig, ax0 = plt.subplots(nrows=1)
+# fig = plt.gcf()
+# fig.canvas.set_window_title('Champ de pression')
+# antenne = da.DifferentialArray(steering_mic, Fs, Ntfd, freqBand, interp)
+# x, y = antenne.coordinates()
+# x_grid = np.linspace(-antenne.R*(1 + 0.1), antenne.R*(1 + 0.1), 500)
+# x_grid, y_grid = np.meshgrid(x_grid, x_grid)
+# ax0.set_xticks([-antenne.R, 0, antenne.R])
+# ax0.set_xticklabels([r'$-R$', '0', r'$R$'])
+# ax0.set_yticks([-antenne.R, 0, antenne.R])
+# ax0.set_yticklabels([r'$-R$', '0', r'$R$'])
+# ax0.set_xlim([-antenne.R*(1 + 0.1), antenne.R*(1 + 0.1)])
+# ax0.set_ylim([-antenne.R*(1 + 0.1), antenne.R*(1 + 0.1)])
+# ax0.set_xlabel(r'Position suivant $x$')
+# ax0.set_ylabel(r'Position suivant $y$')
+# S = da.PlaneWave(1, 500, np.pi/2)
+# print(2*np.pi*S.f*antenne.R/342)
+# field = np.real(S.static_field(x_grid, y_grid))
+# c = ax0.pcolormesh(x_grid, y_grid, field, cmap='coolwarm')
+# cbar = fig.colorbar(c, ticks=[np.min(field), 0, np.max(field)])
+# cbar.ax.set_yticklabels([r'$P_{min}$', r'$0$', r'$P_{max}$'])
+# for ii in range(antenne.M):
+#     ax0.plot(x[ii], y[ii], 'oC{}'.format(ii), label=r'$M_{}$'.format(ii+1))
+# plt.legend()
+# plt.tight_layout()
+# plt.savefig(os.path.join('Figures', '1-1-ChampPression.png'), facecolor='w', edgecolor='w')
+# plt.show()
 #
 # #------------------------------------------------------------------------------#
 # # %%  Figure 2 : Pression des microphones
@@ -242,43 +242,43 @@ plt.show()
 # plt.tight_layout()
 # plt.savefig(os.path.join('Figures', '3-3-ImpulseResponse.svg'), facecolor='w', edgecolor='w')
 # plt.show()
-#
-# #------------------------------------------------------------------------------#
-# # %%  Figure 4 : Signal de sortie et comparaison
-# #------------------------------------------------------------------------------#
-# t = np.arange(Fs)/Fs
-# a = da.DifferentialArray(steering_mic=steering_mic, Fs=Fs, Ntfd=Ntfd, freqBand=freqBand,interp=(True, n_interp))
-# x, y = a.coordinates()
-#
-# source1, source2 = da.PlaneWave(amp=1, f=1900, ang=3*np.pi/2), da.PlaneWave(amp=1,f=510,ang=np.pi/2)
-# micros = np.real(source1.field(x, y, t) )#+ source2.field(x, y, t))
-#
-# output = a.dma_output(micros)
-# t_output = np.arange(output.size)/Fs
-# fig, (ax, ax1) = plt.subplots(ncols=2)
-# fig = plt.gcf()
-# fig.canvas.set_window_title("Signal de sortie")
-#
-# ax.plot(t, micros[0, :], label=r'$M_{1}[n]$')
-# #ax.plot(t_output, output,'*-', label=r'$z[n]$')
-#
-# ax.set_yticklabels([r'$-P_{max}$',r'$-P_{max}/2$', 0 , r'$P_{max}/2$', r'$P_{max}$'])
-# ax.set_yticks([-max(micros[0, :]), -max(micros[0, :])/2, 0, max(micros[0, :])/2,max(micros[0, :])])
-# ax.set_xlim([0, 1])
-# ax.grid()
-# ax.set_ylabel(r'Amplitude')
-# ax.set_xlabel(r'Temps $n/F_{s}$ en s')
-#
-# ax1.plot(t, micros[0, :], '*-', label=r'$y_{1}[n]$')
-# ax1.plot(t_output, output,'*-', label=r'$z[n]$')
-# ax1.set_yticklabels([r'$-P_{max}$',r'$-P_{max}/2$', 0 , r'$P_{max}/2$', r'$P_{max}$'])
-# ax1.set_yticks([-max(micros[0, :]), -max(micros[0, :])/2, 0, max(micros[0, :])/2,max(micros[0, :])])
-# ax1.set_xlim([0.64, 0.76])
-# ax1.grid()
-# ax1.set_ylabel(r'Amplitude')
-# ax1.set_xlabel(r'Temps $n/F_{s}$ en s')
-#
-# plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1))
-# plt.tight_layout()
-# plt.savefig(os.path.join('Figures', '3-4-OutputSignals.eps'), facecolor='w', edgecolor='w')
-# plt.show()
+
+#------------------------------------------------------------------------------#
+# %%  Figure 4 : Signal de sortie et comparaison
+#------------------------------------------------------------------------------#
+t = np.arange(Fs)/Fs
+a = da.DifferentialArray(steering_mic=steering_mic, Fs=Fs, Ntfd=Ntfd, freqBand=freqBand,interp=(True, n_interp))
+x, y = a.coordinates()
+
+source1, source2 = da.PlaneWave(amp=1, f=500, ang=np.pi/2), da.PlaneWave(amp=1,f=510,ang=np.pi/2)
+micros = np.real(source1.field(x, y, t) + source2.field(x, y, t))
+
+output = a.dma_output(micros)
+t_output = np.arange(output.size)/Fs
+fig, (ax, ax1) = plt.subplots(ncols=2)
+fig = plt.gcf()
+fig.canvas.set_window_title("Signal de sortie")
+
+ax.plot(t, micros[0, :], label=r'$M_{1}[n]$')
+ax.plot(t_output, output,'*-', label=r'$z[n]$')
+
+ax.set_yticklabels([r'$-P_{max}$',r'$-P_{max}/2$', 0 , r'$P_{max}/2$', r'$P_{max}$'])
+ax.set_yticks([-max(micros[0, :]), -max(micros[0, :])/2, 0, max(micros[0, :])/2,max(micros[0, :])])
+ax.set_xlim([0, 1])
+ax.grid()
+ax.set_ylabel(r'Amplitude')
+ax.set_xlabel(r'Temps $n/F_{s}$ en s')
+
+ax1.plot(t, micros[0, :], '*-', label=r'$y_{1}[n]$')
+ax1.plot(t_output, output,'*-', label=r'$z[n]$')
+ax1.set_yticklabels([r'$-P_{max}$',r'$-P_{max}/2$', 0 , r'$P_{max}/2$', r'$P_{max}$'])
+ax1.set_yticks([-max(micros[0, :]), -max(micros[0, :])/2, 0, max(micros[0, :])/2,max(micros[0, :])])
+ax1.set_xlim([0.64, 0.76])
+ax1.grid()
+ax1.set_ylabel(r'Amplitude')
+ax1.set_xlabel(r'Temps $n/F_{s}$ en s')
+
+plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1))
+plt.tight_layout()
+plt.savefig(os.path.join('Figures', '3-4-OutputSignals.eps'), facecolor='w', edgecolor='w')
+plt.show()

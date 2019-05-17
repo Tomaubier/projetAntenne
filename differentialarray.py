@@ -107,5 +107,5 @@ class DifferentialArray(CircularArray, Medium):
         return h
 
     def dma_output(self, signals):
-        z = sg.fftconvolve(signals, self.impulse_responses(), mode='same', axes=1)
+        z = sg.fftconvolve(signals, self.impulse_responses(), mode='full', axes=1)
         return np.sum(z, axis=0)
